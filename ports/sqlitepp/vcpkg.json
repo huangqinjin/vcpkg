@@ -1,0 +1,9 @@
+{
+    "name": "sqlitepp",
+    "version-string": "1.0.0",
+    "description": "SQLite++ - C++ wrapper to SQLite library",
+    "homepage": "https://github.com/huangqinjin/sqlitepp",
+    "dependencies": [
+      "sqlite3"
+    ]
+}
