@@ -1,0 +1,4 @@
+Source: apriltags
+Version: 1.0.0
+Build-Depends: eigen3, opencv
+Description: AprilTags C++ Library
