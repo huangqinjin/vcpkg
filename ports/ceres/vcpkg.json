@@ -42,6 +42,9 @@
         }
       ]
     },
+    "openmp" : {
+      "description": "Use of OpenMP instead of C++11 thread as the threading model in Ceres"
+    },
     "tools": {
       "description": "Ceres tools",
       "dependencies": [

@@ -20,10 +20,9 @@ vcpkg_from_github(
         find-package-required.patch
 )
 
-file(REMOVE ${SOURCE_PATH}/cmake/FindCXSparse.cmake)
-file(REMOVE ${SOURCE_PATH}/cmake/FindGflags.cmake)
-file(REMOVE ${SOURCE_PATH}/cmake/FindGlog.cmake)
-file(REMOVE ${SOURCE_PATH}/cmake/FindEigen.cmake)
+#file(REMOVE ${SOURCE_PATH}/cmake/FindGflags.cmake)
+#file(REMOVE ${SOURCE_PATH}/cmake/FindGlog.cmake)
+#file(REMOVE ${SOURCE_PATH}/cmake/FindEigen.cmake)
 file(REMOVE ${SOURCE_PATH}/cmake/FindSuiteSparse.cmake)
 
 vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
@@ -33,6 +32,11 @@ vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
     "eigensparse"       EIGENSPARSE
     "tools"             GFLAGS
 )
+
+set(THREADING CXX11_THREADS)
+if("openmp" IN_LIST FEATURES)
+    set(THREADING OPENMP)
+endif()
 
 vcpkg_configure_cmake(
     SOURCE_PATH ${SOURCE_PATH}
@@ -47,6 +51,7 @@ vcpkg_configure_cmake(
         -DPROVIDE_UNINSTALL_TARGET=OFF
         -DMSVC_USE_STATIC_CRT=${MSVC_USE_STATIC_CRT_VALUE}
         -DLIB_SUFFIX=${LIB_SUFFIX}
+        -DCERES_THREADING_MODEL=${THREADING}
 )
 
 vcpkg_install_cmake()
