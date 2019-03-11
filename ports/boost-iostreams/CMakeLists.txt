@@ -16,8 +16,8 @@ if(MSVC)
     set_property(TARGET boost_iostreams PROPERTY OUTPUT_NAME_RELEASE boost_iostreams-vc140-mt)
     set_property(TARGET boost_iostreams PROPERTY OUTPUT_NAME_DEBUG boost_iostreams-vc140-mt-gd)
 
-    set_property(TARGET boost_iostreams PROPERTY RUNTIME_OUTPUT_NAME_RELEASE boost_iostreams)
-    set_property(TARGET boost_iostreams PROPERTY RUNTIME_OUTPUT_NAME_DEBUG boost_iostreamsd)
+    set_property(TARGET boost_iostreams PROPERTY RUNTIME_OUTPUT_NAME_RELEASE boost_iostreams-vc142-mt-x64-1_75)
+    set_property(TARGET boost_iostreams PROPERTY RUNTIME_OUTPUT_NAME_DEBUG boost_iostreams-vc142-mt-gd-x64-1_75)
 endif()
 
 find_package(ZLIB REQUIRED)
