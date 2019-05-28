@@ -1,0 +1,4 @@
+Source: minapp
+Version: 1.0.0
+Build-Depends: boost-asio
+Description: minapp - TCP micro framework based on Boost.Asio inspired by Apache.MINA
