@@ -7,8 +7,8 @@ while [ "$vcpkgRootDir" != "/" ] && ! [ -e "$vcpkgRootDir/.vcpkg-root" ]; do
 done
 
 # Argument parsing
-vcpkgDisableMetrics="OFF"
-vcpkgUseSystem=false
+vcpkgDisableMetrics="ON"
+vcpkgUseSystem=true
 vcpkgAllowAppleClang=false
 vcpkgBuildTests="OFF"
 for var in "$@"
