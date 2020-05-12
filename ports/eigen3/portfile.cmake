@@ -10,6 +10,7 @@ vcpkg_from_gitlab(
     PATCHES
         disable_pkgconfig_absolute_path_check.patch
         fix-cuda-error.patch # issue https://gitlab.com/libeigen/eigen/-/issues/1526
+        disable-fortran-for-android.patch
 )
 
 vcpkg_configure_cmake(
