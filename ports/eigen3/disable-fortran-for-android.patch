@@ -1,0 +1,14 @@
+diff --git a/cmake/language_support.cmake b/cmake/language_support.cmake
+index ddba50945..d93539c80 100644
+--- a/cmake/language_support.cmake
++++ b/cmake/language_support.cmake
+@@ -20,6 +20,9 @@
+ # it is safe to invoke ENABLE_LANGUAGE(Fortran OPTIONAL)
+ 
+ function(workaround_9220 language language_works)
++  if (ANDROID) 
++    return()
++  endif()
+   #message("DEBUG: language = ${language}")
+   set(text
+     "project(test NONE)
