@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 120dc7548..728ca3591 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -398,11 +398,12 @@ else()
+@@ -398,9 +398,10 @@ else()
  endif()
  
  if(WIN32)
@@ -13,5 +13,3 @@ index 120dc7548..728ca3591 100644
          target_include_directories(liblzma PRIVATE windows/vs2019)
  
          # Export the public API symbols with __declspec(dllexport).
-         target_compile_definitions(liblzma PRIVATE DLL_EXPORT)
-     else()
