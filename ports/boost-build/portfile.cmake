@@ -28,8 +28,13 @@ vcpkg_download_distfile(BOOSTCPP_ARCHIVE
     SHA512 8cf929fa4a602342c859a6bbd5f9dda783ac29431d951bcf6cae4cb14377c1b3aed90bacd902b0f7d1807591cf5e1a244cf8fc3c6cc6e0a4056db145b58f51df
 )
 
+# https://github.com/boostorg/boost/pull/206
+# do not add version suffix for android
+file(READ "${BOOSTCPP_ARCHIVE}" _contents)
+string(REPLACE "aix &&" "aix android &&" _contents "${_contents}")
+file(WRITE "${SOURCE_PATH}/boostcpp.jam" "${_contents}")
+
 file(INSTALL ${ARCHIVE} DESTINATION ${CURRENT_PACKAGES_DIR}/share/boost-build RENAME copyright)
-file(INSTALL ${BOOSTCPP_ARCHIVE} DESTINATION ${CURRENT_PACKAGES_DIR}/tools/boost-build RENAME boostcpp.jam)
 
 # This fixes the lib path to use desktop libs instead of uwp -- TODO: improve this with better "host" compilation
 string(REPLACE "\\store\\;" "\\;" LIB "$ENV{LIB}")
