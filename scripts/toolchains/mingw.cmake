@@ -17,16 +17,20 @@ elseif(VCPKG_TARGET_ARCHITECTURE STREQUAL "arm64")
    set(CMAKE_SYSTEM_PROCESSOR aarch64 CACHE STRING "")
 endif()
 
+set(triplet ${CMAKE_SYSTEM_PROCESSOR}-w64-mingw32)
+
 foreach(lang C CXX)
-  set(CMAKE_${lang}_COMPILER_TARGET "${CMAKE_SYSTEM_PROCESSOR}-windows-gnu" CACHE STRING "")
+  set(CMAKE_${lang}_COMPILER_TARGET "${triplet}" CACHE STRING "")
 endforeach()
 
-find_program(CMAKE_C_COMPILER "${CMAKE_SYSTEM_PROCESSOR}-w64-mingw32-gcc")
-find_program(CMAKE_CXX_COMPILER "${CMAKE_SYSTEM_PROCESSOR}-w64-mingw32-g++")
-find_program(CMAKE_RC_COMPILER "${CMAKE_SYSTEM_PROCESSOR}-w64-mingw32-windres")
+find_program(CMAKE_C_COMPILER "${triplet}-gcc" PATHS ENV MINGW_HOME PATH_SUFFIXES bin)
+find_program(CMAKE_CXX_COMPILER "${triplet}-g++" PATHS ENV MINGW_HOME PATH_SUFFIXES bin)
+find_program(CMAKE_RC_COMPILER "${triplet}-windres" PATHS ENV MINGW_HOME PATH_SUFFIXES bin)
 if(NOT CMAKE_RC_COMPILER)
-    find_program(CMAKE_RC_COMPILER "windres")
+    find_program(CMAKE_RC_COMPILER "windres" PATHS ENV MINGW_HOME PATH_SUFFIXES bin)
 endif()
+
+unset(triplet)
 
 get_property( _CMAKE_IN_TRY_COMPILE GLOBAL PROPERTY IN_TRY_COMPILE )
 if(NOT _CMAKE_IN_TRY_COMPILE)
