@@ -337,9 +337,9 @@ function(vcpkg_configure_make)
         macro(_vcpkg_append_to_configure_environment inoutstring var defaultval)
             # Allows to overwrite settings in custom triplets via the environment
             if(DEFINED ENV{${var}})
-                string(APPEND ${inoutstring} " ${var}='$ENV{${var}}'")
+                list(APPEND ${inoutstring} "${var}=$ENV{${var}}")
             else()
-                string(APPEND ${inoutstring} " ${var}='${defaultval}'")
+                list(APPEND ${inoutstring} "${var}=${defaultval}")
             endif()
         endmacro()
 
@@ -427,7 +427,6 @@ function(vcpkg_configure_make)
         string(REPLACE " " "\\\ " _VCPKG_PREFIX ${CURRENT_INSTALLED_DIR})
         string(REGEX REPLACE "([a-zA-Z]):/" "/\\1/" _VCPKG_PREFIX "${_VCPKG_PREFIX}")
         set(_VCPKG_INSTALLED ${CURRENT_INSTALLED_DIR})
-        set(prefix_var "'\${prefix}'") # Windows needs extra quotes or else the variable gets expanded in the makefile!
 
         # Variables not correctly detected by configure. In release builds.
         list(APPEND _csc_OPTIONS gl_cv_double_slash_root=yes
@@ -444,8 +443,7 @@ function(vcpkg_configure_make)
     else()
         string(REPLACE " " "\ " _VCPKG_PREFIX ${CURRENT_INSTALLED_DIR})
         string(REPLACE " " "\ " _VCPKG_INSTALLED ${CURRENT_INSTALLED_DIR})
-        set(EXTRA_QUOTES)
-        set(prefix_var "\${prefix}")
+        find_program(BASH bash REQUIRED)
     endif()
 
     # macOS - cross-compiling support
@@ -465,31 +463,33 @@ function(vcpkg_configure_make)
         endif()
     endif()
 
+    string(REPLACE " " ";" _csc_BUILD_TRIPLET ${_csc_BUILD_TRIPLET})
+
     # Cleanup previous build dirs
     file(REMOVE_RECURSE "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel"
                         "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg"
                         "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}")
 
     # Set configure paths
-    set(_csc_OPTIONS_RELEASE ${_csc_OPTIONS_RELEASE} "--prefix=${EXTRA_QUOTES}${_VCPKG_PREFIX}${EXTRA_QUOTES}")
-    set(_csc_OPTIONS_DEBUG ${_csc_OPTIONS_DEBUG} "--prefix=${EXTRA_QUOTES}${_VCPKG_PREFIX}/debug${EXTRA_QUOTES}")
+    list(APPEND _csc_OPTIONS_RELEASE "--prefix=${_VCPKG_PREFIX}")
+    list(APPEND _csc_OPTIONS_DEBUG "--prefix=${_VCPKG_PREFIX}/debug")
     if(NOT _csc_NO_ADDITIONAL_PATHS)
-        set(_csc_OPTIONS_RELEASE ${_csc_OPTIONS_RELEASE}
-                            # Important: These should all be relative to prefix!
-                            "--bindir=${prefix_var}/tools/${PORT}/bin"
-                            "--sbindir=${prefix_var}/tools/${PORT}/sbin"
-                            #"--libdir='\${prefix}'/lib" # already the default!
-                            #"--includedir='\${prefix}'/include" # already the default!
-                            "--mandir=${prefix_var}/share/${PORT}"
-                            "--docdir=${prefix_var}/share/${PORT}"
-                            "--datarootdir=${prefix_var}/share/${PORT}")
-        set(_csc_OPTIONS_DEBUG ${_csc_OPTIONS_DEBUG}
-                            # Important: These should all be relative to prefix!
-                            "--bindir=${prefix_var}/../tools/${PORT}/debug/bin"
-                            "--sbindir=${prefix_var}/../tools/${PORT}/debug/sbin"
-                            #"--libdir='\${prefix}'/lib" # already the default!
-                            "--includedir=${prefix_var}/../include"
-                            "--datarootdir=${prefix_var}/share/${PORT}")
+        list(APPEND _csc_OPTIONS_RELEASE
+            # Important: These should all be relative to prefix!
+            "--bindir='\${prefix}'/tools/${PORT}/bin"
+            "--sbindir='\${prefix}'/tools/${PORT}/sbin"
+            #"--libdir='\${prefix}'/lib" # already the default!
+            #"--includedir='\${prefix}'/include" # already the default!
+            "--mandir='\${prefix}'/share/${PORT}"
+            "--docdir='\${prefix}'/share/${PORT}"
+            "--datarootdir='\${prefix}'/share/${PORT}")
+        list(APPEND _csc_OPTIONS_DEBUG
+            # Important: These should all be relative to prefix!
+            "--bindir='\${prefix}'/../tools/${PORT}/debug/bin"
+            "--sbindir='\${prefix}'/../tools/${PORT}/debug/sbin"
+            #"--libdir='\${prefix}'/lib" # already the default!
+            "--includedir='\${prefix}'/../include"
+            "--datarootdir='\${prefix}'/share/${PORT}")
     endif()
     # Setup common options
     if(NOT DISABLE_VERBOSE_FLAGS)
@@ -504,14 +504,8 @@ function(vcpkg_configure_make)
 
     file(RELATIVE_PATH RELATIVE_BUILD_PATH "${CURRENT_BUILDTREES_DIR}" "${_csc_SOURCE_PATH}/${_csc_PROJECT_SUBPATH}")
 
-    set(base_cmd)
-    if(CMAKE_HOST_WIN32)
-        set(base_cmd ${BASH} --noprofile --norc --debug)
-        list(JOIN _csc_OPTIONS " " _csc_OPTIONS)
-        list(JOIN _csc_OPTIONS_RELEASE " " _csc_OPTIONS_RELEASE)
-        list(JOIN _csc_OPTIONS_DEBUG " " _csc_OPTIONS_DEBUG)
-    endif()
-    
+    set(base_cmd ${BASH} --noprofile --norc --debug)
+
     # Setup include environment (since these are buildtype independent restoring them is unnecessary)
     # Used by CL 
     set(ENV{INCLUDE} "${_VCPKG_INSTALLED}/include${VCPKG_HOST_PATH_SEPARATOR}${INCLUDE_BACKUP}")
@@ -589,36 +583,20 @@ function(vcpkg_configure_make)
             message(FATAL_ERROR "${PORT} requires autoconf from the system package manager (example: \"sudo apt-get install autoconf\")")
         endif()
         message(STATUS "Generating configure for ${TARGET_TRIPLET}")
-        if (CMAKE_HOST_WIN32)
-            vcpkg_execute_required_process(
-                COMMAND ${base_cmd} -c "autoreconf -vfi"
-                WORKING_DIRECTORY "${SRC_DIR}"
-                LOGNAME autoconf-${TARGET_TRIPLET}
-            )
-        else()
-            vcpkg_execute_required_process(
-                COMMAND ${AUTORECONF} -vfi
-                WORKING_DIRECTORY "${SRC_DIR}"
-                LOGNAME autoconf-${TARGET_TRIPLET}
-            )
-        endif()
+        vcpkg_execute_required_process(
+            COMMAND ${base_cmd} -c "autoreconf -vfi"
+            WORKING_DIRECTORY "${SRC_DIR}"
+            LOGNAME autoconf-${TARGET_TRIPLET}
+        )
         message(STATUS "Finished generating configure for ${TARGET_TRIPLET}")
     endif()
     if(REQUIRES_AUTOGEN)
         message(STATUS "Generating configure for ${TARGET_TRIPLET} via autogen.sh")
-        if (CMAKE_HOST_WIN32)
-            vcpkg_execute_required_process(
-                COMMAND ${base_cmd} -c "./autogen.sh"
-                WORKING_DIRECTORY "${SRC_DIR}"
-                LOGNAME autoconf-${TARGET_TRIPLET}
-            )
-        else()
-            vcpkg_execute_required_process(
-                COMMAND "./autogen.sh"
-                WORKING_DIRECTORY "${SRC_DIR}"
-                LOGNAME autoconf-${TARGET_TRIPLET}
-            )
-        endif()
+        vcpkg_execute_required_process(
+            COMMAND ${base_cmd} -c "./autogen.sh"
+            WORKING_DIRECTORY "${SRC_DIR}"
+            LOGNAME autogen-${TARGET_TRIPLET}
+        )
         message(STATUS "Finished generating configure for ${TARGET_TRIPLET}")
     endif()
 
@@ -762,12 +740,7 @@ function(vcpkg_configure_make)
         unset(_link_path)
         unset(_lib_env_vars)
 
-        if (CMAKE_HOST_WIN32)
-            set(command ${base_cmd} -c "${CONFIGURE_ENV} ./${RELATIVE_BUILD_PATH}/configure ${_csc_BUILD_TRIPLET} ${_csc_OPTIONS} ${_csc_OPTIONS_${_buildtype}}")
-        else()
-            find_program(BASH bash REQUIRED)
-            set(command "${BASH}" "./${RELATIVE_BUILD_PATH}/configure" ${_csc_BUILD_TRIPLET} ${_csc_OPTIONS} ${_csc_OPTIONS_${_buildtype}})
-        endif()
+        set(command ${CMAKE_COMMAND} -E env ${CONFIGURE_ENV} ${base_cmd} "./${RELATIVE_BUILD_PATH}/configure" ${_csc_BUILD_TRIPLET} ${_csc_OPTIONS} ${_csc_OPTIONS_${_buildtype}})
         if(_csc_ADD_BIN_TO_PATH)
             set(PATH_BACKUP $ENV{PATH})
             vcpkg_add_to_path("${CURRENT_INSTALLED_DIR}${PATH_SUFFIX_${_buildtype}}/bin")
