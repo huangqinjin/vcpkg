@@ -304,27 +304,6 @@ function(vcpkg_configure_make)
     if (CMAKE_HOST_WIN32)
         list(APPEND MSYS_REQUIRE_PACKAGES binutils libtool autoconf automake-wrapper automake1.16 m4)
         vcpkg_acquire_msys(MSYS_ROOT PACKAGES ${MSYS_REQUIRE_PACKAGES} ${_csc_ADDITIONAL_MSYS_PACKAGES})
-        if (NOT _csc_SKIP_CONFIGURE AND NOT _csc_BUILD_TRIPLET OR _csc_DETERMINE_BUILD_TRIPLET)
-            _vcpkg_determine_autotools_host_cpu(BUILD_ARCH) # VCPKG_HOST => machine you are building on => --build=
-            _vcpkg_determine_autotools_target_cpu(TARGET_ARCH)
-            # --build: the machine you are building on
-            # --host: the machine you are building for
-            # --target: the machine that CC will produce binaries for
-            # https://stackoverflow.com/questions/21990021/how-to-determine-host-value-for-configure-when-using-cross-compiler
-            # Only for ports using autotools so we can assume that they follow the common conventions for build/target/host
-            set(_csc_BUILD_TRIPLET "--build=${BUILD_ARCH}-pc-mingw32")  # This is required since we are running in a msys
-                                                                        # shell which will be otherwise identified as ${BUILD_ARCH}-pc-msys
-            if(VCPKG_DETECTED_CMAKE_C_COMPILER_TARGET)
-                string(APPEND _csc_BUILD_TRIPLET " --host=${VCPKG_DETECTED_CMAKE_C_COMPILER_TARGET}")
-            elseif(NOT TARGET_ARCH MATCHES "${BUILD_ARCH}") # we don't need to specify the additional flags if we build nativly. 
-                string(APPEND _csc_BUILD_TRIPLET " --host=${TARGET_ARCH}-pc-mingw32") # (Host activates crosscompilation; The name given here is just the prefix of the host tools for the target)
-            endif()
-            if(VCPKG_TARGET_IS_UWP AND NOT _csc_BUILD_TRIPLET MATCHES "--host")
-                # Needs to be different from --build to enable cross builds.
-                string(APPEND _csc_BUILD_TRIPLET " --host=${TARGET_ARCH}-unknown-mingw32")
-            endif()
-            debug_message("Using make triplet: ${_csc_BUILD_TRIPLET}")
-        endif()
         set(APPEND_ENV)
         if(_csc_USE_WRAPPERS)
             set(APPEND_ENV ";${MSYS_ROOT}/usr/share/automake-1.16")
@@ -336,95 +315,6 @@ function(vcpkg_configure_make)
         set(ENV{PATH} "${NEWPATH}")
         set(BASH "${MSYS_ROOT}/usr/bin/bash.exe")
 
-        macro(_vcpkg_append_to_configure_environment inoutstring var defaultval)
-            # Allows to overwrite settings in custom triplets via the environment
-            if(DEFINED ENV{${var}})
-                list(APPEND ${inoutstring} "${var}=$ENV{${var}}")
-            else()
-                list(APPEND ${inoutstring} "${var}=${defaultval}")
-            endif()
-        endmacro()
-
-        set(CONFIGURE_ENV "V=1")
-        # Remove full filepaths due to spaces and prepend filepaths to PATH (cross-compiling tools are unlikely on path by default)
-        set(progs VCPKG_DETECTED_CMAKE_C_COMPILER VCPKG_DETECTED_CMAKE_CXX_COMPILER VCPKG_DETECTED_CMAKE_AR
-                  VCPKG_DETECTED_CMAKE_LINKER VCPKG_DETECTED_CMAKE_RANLIB VCPKG_DETECTED_CMAKE_OBJDUMP
-                  VCPKG_DETECTED_CMAKE_STRIP VCPKG_DETECTED_CMAKE_NM VCPKG_DETECTED_CMAKE_DLLTOOL VCPKG_DETECTED_CMAKE_RC_COMPILER)
-        foreach(prog IN LISTS progs)
-            if(${prog})
-                set(path "${${prog}}")
-                unset(prog_found CACHE)
-                get_filename_component(${prog} "${${prog}}" NAME)
-                find_program(prog_found ${${prog}} PATHS ENV PATH NO_DEFAULT_PATH)
-                if(NOT path STREQUAL prog_found)
-                    get_filename_component(path "${path}" DIRECTORY)
-                    vcpkg_add_to_path(PREPEND ${path})
-                endif()
-            endif()
-        endforeach()
-        if (_csc_USE_WRAPPERS)
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CPP "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1} -E")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC_FOR_BUILD "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CXX "compile ${VCPKG_DETECTED_CMAKE_CXX_COMPILER} ${VCPKG_DETECTED_CMAKE_CXX_COMPILER_ARG1}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV RC "windres-rc ${VCPKG_DETECTED_CMAKE_RC_COMPILER}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV WINDRES "windres-rc ${VCPKG_DETECTED_CMAKE_RC_COMPILER}")
-            if(VCPKG_DETECTED_CMAKE_AR)
-                _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "ar-lib ${VCPKG_DETECTED_CMAKE_AR}")
-            else()
-                _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "ar-lib lib.exe -verbose")
-            endif()
-        else()
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CPP "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1} -E")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC_FOR_BUILD "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV CXX "${VCPKG_DETECTED_CMAKE_CXX_COMPILER} ${VCPKG_DETECTED_CMAKE_CXX_COMPILER_ARG1}")
-            if(VCPKG_DETECTED_CMAKE_AR)
-                _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "${VCPKG_DETECTED_CMAKE_AR}")
-            else()
-                _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "lib.exe -verbose")
-            endif()
-        endif()
-        _vcpkg_append_to_configure_environment(CONFIGURE_ENV LD "${VCPKG_DETECTED_CMAKE_LINKER} -verbose")
-        if(VCPKG_DETECTED_CMAKE_RANLIB)
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV RANLIB "${VCPKG_DETECTED_CMAKE_RANLIB}") # Trick to ignore the RANLIB call
-        else()
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV RANLIB ":")
-        endif()
-        if(VCPKG_DETECTED_CMAKE_OBJDUMP) #Objdump is required to make shared libraries. Otherwise define lt_cv_deplibs_check_method=pass_all
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV OBJDUMP "${VCPKG_DETECTED_CMAKE_OBJDUMP}") # Trick to ignore the RANLIB call
-        endif()
-        if(VCPKG_DETECTED_CMAKE_STRIP) # If required set the ENV variable STRIP in the portfile correctly
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV STRIP "${VCPKG_DETECTED_CMAKE_STRIP}") 
-        else()
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV STRIP ":")
-            list(APPEND _csc_OPTIONS ac_cv_prog_ac_ct_STRIP=:)
-        endif()
-        if(VCPKG_DETECTED_CMAKE_NM) # If required set the ENV variable NM in the portfile correctly
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV NM "${VCPKG_DETECTED_CMAKE_NM}") 
-        else()
-            # Would be better to have a true nm here! Some symbols (mainly exported variables) get not properly imported with dumpbin as nm 
-            # and require __declspec(dllimport) for some reason (same problem CMake has with WINDOWS_EXPORT_ALL_SYMBOLS)
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV NM "dumpbin.exe -symbols -headers")
-        endif()
-        if(VCPKG_DETECTED_CMAKE_DLLTOOL) # If required set the ENV variable DLLTOOL in the portfile correctly
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV DLLTOOL "${VCPKG_DETECTED_CMAKE_DLLTOOL}") 
-        else()
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV DLLTOOL "link.exe -verbose -dll")
-        endif()
-        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CCAS ":")   # If required set the ENV variable CCAS in the portfile correctly
-        _vcpkg_append_to_configure_environment(CONFIGURE_ENV AS ":")   # If required set the ENV variable AS in the portfile correctly
-
-        foreach(_env IN LISTS _csc_CONFIGURE_ENVIRONMENT_VARIABLES)
-            _vcpkg_append_to_configure_environment(CONFIGURE_ENV ${_env} "${${_env}}")
-        endforeach()
-        debug_message("CONFIGURE_ENV: '${CONFIGURE_ENV}'")
-        # Other maybe interesting variables to control
-        # COMPILE This is the command used to actually compile a C source file. The file name is appended to form the complete command line. 
-        # LINK This is the command used to actually link a C program.
-        # CXXCOMPILE The command used to actually compile a C++ source file. The file name is appended to form the complete command line. 
-        # CXXLINK  The command used to actually link a C++ program. 
-    
         #Some PATH handling for dealing with spaces....some tools will still fail with that!
         string(REPLACE " " "\\\ " _VCPKG_PREFIX ${CURRENT_INSTALLED_DIR})
         string(REGEX REPLACE "([a-zA-Z]):/" "/\\1/" _VCPKG_PREFIX "${_VCPKG_PREFIX}")
@@ -446,6 +336,117 @@ function(vcpkg_configure_make)
         string(REPLACE " " "\ " _VCPKG_PREFIX ${CURRENT_INSTALLED_DIR})
         string(REPLACE " " "\ " _VCPKG_INSTALLED ${CURRENT_INSTALLED_DIR})
         find_program(BASH bash REQUIRED)
+    endif()
+
+    macro(_vcpkg_append_to_configure_environment inoutstring var defaultval)
+        # Allows to overwrite settings in custom triplets via the environment
+        if(DEFINED ENV{${var}})
+            list(APPEND ${inoutstring} "${var}=$ENV{${var}}")
+        else()
+            list(APPEND ${inoutstring} "${var}=${defaultval}")
+        endif()
+    endmacro()
+
+    set(CONFIGURE_ENV "V=1")
+    # Remove full filepaths due to spaces and prepend filepaths to PATH (cross-compiling tools are unlikely on path by default)
+    set(progs VCPKG_DETECTED_CMAKE_C_COMPILER VCPKG_DETECTED_CMAKE_CXX_COMPILER VCPKG_DETECTED_CMAKE_AR
+            VCPKG_DETECTED_CMAKE_LINKER VCPKG_DETECTED_CMAKE_RANLIB VCPKG_DETECTED_CMAKE_OBJDUMP
+            VCPKG_DETECTED_CMAKE_STRIP VCPKG_DETECTED_CMAKE_NM VCPKG_DETECTED_CMAKE_DLLTOOL VCPKG_DETECTED_CMAKE_RC_COMPILER)
+    foreach(prog IN LISTS progs)
+        if(${prog})
+            set(path "${${prog}}")
+            unset(prog_found CACHE)
+            get_filename_component(${prog} "${${prog}}" NAME)
+            find_program(prog_found ${${prog}} PATHS ENV PATH NO_DEFAULT_PATH)
+            if(NOT path STREQUAL prog_found)
+                get_filename_component(path "${path}" DIRECTORY)
+                vcpkg_add_to_path(PREPEND ${path})
+            endif()
+        endif()
+    endforeach()
+    if (_csc_USE_WRAPPERS)
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CPP "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1} -E")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC_FOR_BUILD "compile ${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CXX "compile ${VCPKG_DETECTED_CMAKE_CXX_COMPILER} ${VCPKG_DETECTED_CMAKE_CXX_COMPILER_ARG1}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV RC "windres-rc ${VCPKG_DETECTED_CMAKE_RC_COMPILER}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV WINDRES "windres-rc ${VCPKG_DETECTED_CMAKE_RC_COMPILER}")
+        if(VCPKG_DETECTED_CMAKE_AR)
+            _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "ar-lib ${VCPKG_DETECTED_CMAKE_AR}")
+        else()
+            _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "ar-lib lib.exe -verbose")
+        endif()
+    else()
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CPP "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1} -E")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CC_FOR_BUILD "${VCPKG_DETECTED_CMAKE_C_COMPILER} ${VCPKG_DETECTED_CMAKE_C_COMPILER_ARG1}")
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV CXX "${VCPKG_DETECTED_CMAKE_CXX_COMPILER} ${VCPKG_DETECTED_CMAKE_CXX_COMPILER_ARG1}")
+        if(VCPKG_DETECTED_CMAKE_AR)
+            _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "${VCPKG_DETECTED_CMAKE_AR}")
+        else()
+            _vcpkg_append_to_configure_environment(CONFIGURE_ENV AR "lib.exe -verbose")
+        endif()
+    endif()
+    _vcpkg_append_to_configure_environment(CONFIGURE_ENV LD "${VCPKG_DETECTED_CMAKE_LINKER} -verbose")
+    if(VCPKG_DETECTED_CMAKE_RANLIB)
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV RANLIB "${VCPKG_DETECTED_CMAKE_RANLIB}") # Trick to ignore the RANLIB call
+    else()
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV RANLIB ":")
+    endif()
+    if(VCPKG_DETECTED_CMAKE_OBJDUMP) #Objdump is required to make shared libraries. Otherwise define lt_cv_deplibs_check_method=pass_all
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV OBJDUMP "${VCPKG_DETECTED_CMAKE_OBJDUMP}") # Trick to ignore the RANLIB call
+    endif()
+    if(VCPKG_DETECTED_CMAKE_STRIP) # If required set the ENV variable STRIP in the portfile correctly
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV STRIP "${VCPKG_DETECTED_CMAKE_STRIP}") 
+    else()
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV STRIP ":")
+        list(APPEND _csc_OPTIONS ac_cv_prog_ac_ct_STRIP=:)
+    endif()
+    if(VCPKG_DETECTED_CMAKE_NM) # If required set the ENV variable NM in the portfile correctly
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV NM "${VCPKG_DETECTED_CMAKE_NM}") 
+    else()
+        # Would be better to have a true nm here! Some symbols (mainly exported variables) get not properly imported with dumpbin as nm 
+        # and require __declspec(dllimport) for some reason (same problem CMake has with WINDOWS_EXPORT_ALL_SYMBOLS)
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV NM "dumpbin.exe -symbols -headers")
+    endif()
+    if(VCPKG_DETECTED_CMAKE_DLLTOOL) # If required set the ENV variable DLLTOOL in the portfile correctly
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV DLLTOOL "${VCPKG_DETECTED_CMAKE_DLLTOOL}") 
+    else()
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV DLLTOOL "link.exe -verbose -dll")
+    endif()
+    _vcpkg_append_to_configure_environment(CONFIGURE_ENV CCAS ":")   # If required set the ENV variable CCAS in the portfile correctly
+    _vcpkg_append_to_configure_environment(CONFIGURE_ENV AS ":")   # If required set the ENV variable AS in the portfile correctly
+
+    foreach(_env IN LISTS _csc_CONFIGURE_ENVIRONMENT_VARIABLES)
+        _vcpkg_append_to_configure_environment(CONFIGURE_ENV ${_env} "${${_env}}")
+    endforeach()
+    debug_message("CONFIGURE_ENV: '${CONFIGURE_ENV}'")
+    # Other maybe interesting variables to control
+    # COMPILE This is the command used to actually compile a C source file. The file name is appended to form the complete command line. 
+    # LINK This is the command used to actually link a C program.
+    # CXXCOMPILE The command used to actually compile a C++ source file. The file name is appended to form the complete command line. 
+    # CXXLINK  The command used to actually link a C++ program. 
+
+    if (NOT _csc_SKIP_CONFIGURE AND NOT _csc_BUILD_TRIPLET OR _csc_DETERMINE_BUILD_TRIPLET)
+        _vcpkg_determine_autotools_host_cpu(BUILD_ARCH) # VCPKG_HOST => machine you are building on => --build=
+        _vcpkg_determine_autotools_target_cpu(TARGET_ARCH)
+        # --build: the machine you are building on
+        # --host: the machine you are building for
+        # --target: the machine that CC will produce binaries for
+        # https://stackoverflow.com/questions/21990021/how-to-determine-host-value-for-configure-when-using-cross-compiler
+        # Only for ports using autotools so we can assume that they follow the common conventions for build/target/host
+        set(_csc_BUILD_TRIPLET "--build=${BUILD_ARCH}-pc-mingw32")  # This is required since we are running in a msys
+                                                                    # shell which will be otherwise identified as ${BUILD_ARCH}-pc-msys
+        if(VCPKG_DETECTED_CMAKE_C_COMPILER_TARGET)
+            string(APPEND _csc_BUILD_TRIPLET " --host=${VCPKG_DETECTED_CMAKE_C_COMPILER_TARGET}")
+        elseif(NOT TARGET_ARCH MATCHES "${BUILD_ARCH}") # we don't need to specify the additional flags if we build nativly. 
+            string(APPEND _csc_BUILD_TRIPLET " --host=${TARGET_ARCH}-pc-mingw32") # (Host activates crosscompilation; The name given here is just the prefix of the host tools for the target)
+        endif()
+        if(VCPKG_TARGET_IS_UWP AND NOT _csc_BUILD_TRIPLET MATCHES "--host")
+            # Needs to be different from --build to enable cross builds.
+            string(APPEND _csc_BUILD_TRIPLET " --host=${TARGET_ARCH}-unknown-mingw32")
+        endif()
+        debug_message("Using make triplet: ${_csc_BUILD_TRIPLET}")
     endif()
 
     # macOS - cross-compiling support
