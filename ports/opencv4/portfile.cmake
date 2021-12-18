@@ -18,6 +18,7 @@ vcpkg_from_github(
     SHA512 4d1783fd78425cc43bb2153446dd634cedd366a49592bccc0c538a40aa161fcf67db8f1b6b68f1ce0b4a93504b3f06f65931709277afb1a1ee9fe963094bca02
     HEAD_REF master
     PATCHES
+      1001-fix-core-loader-lock-winxp.patch
       0001-disable-downloading.patch
       0002-install-options.patch
       0003-force-package-requirements.patch
@@ -321,7 +322,7 @@ if(WITH_IPP)
 endif()
 
 set(WITH_MSMF ON)
-if(NOT VCPKG_TARGET_IS_WINDOWS OR VCPKG_TARGET_IS_UWP)
+if(NOT VCPKG_TARGET_IS_WINDOWS OR VCPKG_TARGET_IS_UWP OR (DEFINED VCPKG_CMAKE_SYSTEM_VERSION AND VCPKG_CMAKE_SYSTEM_VERSION VERSION_LESS 6.0)) # Vista+
   set(WITH_MSMF OFF)
 endif()
 

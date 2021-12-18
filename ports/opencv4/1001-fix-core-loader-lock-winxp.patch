@@ -1,0 +1,12 @@
+--- a/modules/core/src/logger.cpp
++++ b/modules/core/src/logger.cpp
+@@ -111,7 +112,9 @@ struct GlobalLoggingInitCall
+     }
+ };
+ 
++#ifndef _USING_V110_SDK71_
+ static GlobalLoggingInitCall globalLoggingInitCall;
++#endif
+ 
+ static LogTagManager& getLogTagManager()
+ {
