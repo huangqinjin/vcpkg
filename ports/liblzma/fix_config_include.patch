@@ -2,11 +2,15 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 34c6aca00..7b3708ab2 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -401,6 +401,7 @@ if(WIN32)
+@@ -401,9 +401,10 @@ if(WIN32)
      if(BUILD_SHARED_LIBS)
          # Add the Windows resource file for liblzma.dll.
          target_sources(liblzma PRIVATE src/liblzma/liblzma_w32res.rc)
 +        target_include_directories(liblzma PRIVATE windows/vs2019)
  
          # Export the public API symbols with __declspec(dllexport).
-         target_compile_definitions(liblzma PRIVATE DLL_EXPORT)
+-        target_compile_definitions(liblzma PRIVATE DLL_EXPORT)
++        target_compile_definitions(liblzma PRIVATE DLL_EXPORT HAVE_CONFIG_H)
+     else()
+         # Disable __declspec(dllimport) when linking against static liblzma.
+         target_compile_definitions(liblzma INTERFACE LZMA_API_STATIC)
